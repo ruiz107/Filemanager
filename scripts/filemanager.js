@@ -636,6 +636,10 @@ var getFileInfo = function(file){
 	});	
 }
 
+
+
+
+
 // Retrieves data for all items within the given folder and
 // creates a list view. Binds contextual menu options.
 // TODO: consider stylesheet switching to switch between grid
@@ -660,6 +664,7 @@ var getFolderInfo = function(path){
 			return;
 		};
 		
+
 		if(data){
 			if($('#fileinfo').data('view') == 'grid'){
 				result += '<ul id="contents" class="grid">';
@@ -672,12 +677,25 @@ var getFolderInfo = function(path){
 							cap_classes += " cap_" + capabilities[cap];
 						}
 					}
-				
+
+
+					// Check if we have thumbnails enabled and assign a thumbnail or regular file
+					if(props['thumbnailExists'] == false)
+					{
+						var Preview = data[key]['Preview'];
+					}
+					else
+					{
+						var Preview = props['thumbnailPreview'];
+					}
+					
+					
+					
 					var scaledWidth = 64;
 					var actualWidth = props['Width'];
 					if(actualWidth > 1 && actualWidth < scaledWidth) scaledWidth = actualWidth;
 				
-					result += '<li class="' + cap_classes + '"><div class="clip"><img src="' + data[key]['Preview'] + '" width="' + scaledWidth + '" alt="' + data[key]['Path'] + '" /></div><p>' + data[key]['Filename'] + '</p>';
+					result += '<li class="' + cap_classes + '"><div class="clip"><img src="' + Preview + '" width="' + scaledWidth + '" alt="' + data[key]['Path'] + '" /></div><p>' + data[key]['Filename'] + '</p>';
 					if(props['Width'] && props['Width'] != '') result += '<span class="meta dimensions">' + props['Width'] + 'x' + props['Height'] + '</span>';
 					if(props['Size'] && props['Size'] != '') result += '<span class="meta size">' + props['Size'] + '</span>';
 					if(props['Date Created'] && props['Date Created'] != '') result += '<span class="meta created">' + props['Date Created'] + '</span>';
