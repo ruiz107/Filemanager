@@ -115,6 +115,8 @@ if(!isset($_GET)) {
 }
 
 echo json_encode($response);
+//file_put_contents('teste.htm', json_encode($response) . "\r\n", FILE_APPEND | LOCK_EX);
+
 die();
 
 ?>
