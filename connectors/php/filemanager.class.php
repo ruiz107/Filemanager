@@ -130,7 +130,7 @@ class Filemanager {
       //      );
 
       foreach($filesDir as $file) {
-
+		// check if is a folder
         if(is_dir($current_path . $file)) {
           if(!in_array($file, $this->config['unallowed_dirs'])) {
             $array[$this->get['path'] . $file .'/'] = array(
@@ -143,12 +143,14 @@ class Filemanager {
 							'Date Modified'=>null,
 							'Height'=>null,
 							'Width'=>null,
-							'Size'=>null
+							'Size'=>null,
+							'thumbnailExists'=>false
             ),
 						'Error'=>"",
 						'Code'=>0
             );
           }
+		  // else, is a file
         } else if (!in_array($file, $this->config['unallowed_files'])) {
           $this->item = array();
           $this->item['properties'] = $this->properties;
@@ -156,6 +158,21 @@ class Filemanager {
            
           if(!isset($this->params['type']) || (isset($this->params['type']) && strtolower($this->params['type'])=='images' && in_array(strtolower($this->item['filetype']),$this->config['images']))) {
             if($this->config['upload']['imagesonly']== false || ($this->config['upload']['imagesonly']== true && in_array(strtolower($this->item['filetype']),$this->config['images']))) {
+		  
+		  
+		  // thumbnail creation for existing files (yo umay dsable this if you dont have already uploaded files
+		  if ($this->config['useThumbnails'] == true)
+		  {
+			  $fullPathThumbFile = $this->doc_root . $this->get['path'] . $this->config['thumbnailsFolder'] . '/' . $this->item['filename'];
+			  if (!file_exists($fullPathThumbFile))
+			  {
+				  $this->createThumbs();
+			  }
+			  
+			  $this->item['properties']['thumbnailExists'] = true;
+			  $this->item['properties']['thumbnailPreview'] = 'connectors/php/filemanager.php?mode=preview&path=' . rawurlencode($this->get['path'] . $this->config['thumbnailsFolder'] . '/' . $this->item['filename']);
+		  }
+		  
               $array[$this->get['path'] . $file] = array(
 							'Path'=>$this->get['path'] . $file,
 							'Filename'=>$this->item['filename'],
@@ -225,6 +242,14 @@ class Filemanager {
       );
       return $array;
     } else if(file_exists($this->doc_root . rawurldecode($this->get['path']))) {
+		
+	   // get the thumbnail folder
+	  $parts = explode('/', rawurldecode($this->get['path']));
+	  $total = count($parts);
+	  $parts[$total-1] = $this->config['thumbnailsFolder'] . '/' . $parts[$total-1];
+	  $thumbUrl = implode('/', $parts);
+      @unlink($this->doc_root . $thumbUrl); // unlink it
+	  
       unlink($this->doc_root . rawurldecode($this->get['path']));
       $array = array(
 				'Error'=>"",
@@ -302,6 +327,7 @@ class Filemanager {
     }
   }
 
+
   public function preview() {
 
     if(isset($this->get['path']) && file_exists($this->doc_root . rawurldecode($this->get['path']))) {
@@ -314,6 +340,78 @@ class Filemanager {
       $this->error(sprintf($this->lang('FILE_DOES_NOT_EXIST'),rawurldecode($this->get['path'])));
     }
   }
+
+
+
+
+
+
+	private function createThumbs()
+	{
+		if ($this->config['useThumbnails'] == false)
+		{
+			return false;
+		}
+	  
+		$thumbnailsFolder = $this->config['thumbnailsFolder'];
+		$path = $this->doc_root . $this->get['path'];
+		$fileName = $this->item['filename'];
+		$fullPathThumbFolder = $path . $thumbnailsFolder;
+		$fullPathThumbFile = $path . $thumbnailsFolder . '/' . $fileName;
+		$fullPathFile = $path . $fileName;
+		//$config['thumbnailsSize']
+
+		//create folder if it doesnt exists
+		if(!is_dir($fullPathThumbFolder))
+		{
+			mkdir($fullPathThumbFolder, 0755);
+		}
+			
+		if (!ereg("\.(jpg|png|gif)$", $fileName))
+		{
+			// file cannot have a thumbnail
+			$this->item['properties']['thumbnailExists'] = false;
+			return false;
+		}
+		$fileType = strtolower(substr($fileName, -3));
+			
+		if ($fileType == 'jpg') {$source = imagecreatefromjpeg($fullPathFile);}
+		if ($fileType == 'png') {$source = imagecreatefrompng($fullPathFile);}
+		if ($fileType == 'gif') {$source = imagecreatefromgif($fullPathFile);}
+
+		// Original file height and width
+		$originalFileHeight  = imagesy($source);
+		$originalFileWidth = imagesx($source);
+
+		// get thumbnail width
+		$thumbWidth = $this->config['thumbnailsSize'];
+		$thumbHeight = (int) (($thumbWidth * $originalFileHeight) / $originalFileWidth);	
+
+		// resampling the thumbnail
+		$destination = imagecreatetruecolor($thumbWidth, $thumbHeight);	
+		imagecopyresampled ($destination, $source, 0, 0, 0, 0, $thumbWidth, $thumbHeight, $originalFileWidth, $originalFileHeight);
+		
+		if ($fileType == 'jpg') {$return = imagejpeg($destination, $fullPathThumbFile);}
+		if ($fileType == 'png') {$return = imagepng($destination, $fullPathThumbFile);}
+		if ($fileType == 'gif') {$return = imagegif($destination, $fullPathThumbFile);}
+			
+		// cleanup
+		imagedestroy($destination);
+		imagedestroy($source);
+			
+		if ($return == true)
+		{
+			return true;
+		}
+		else
+		{
+			$this->item['properties']['thumbnailExists'] = false;
+			return false;
+		}
+	}
+
+
+
 
   private function setParams() {
     $tmp = (isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/');
